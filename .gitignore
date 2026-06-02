@@ -1,0 +1,9 @@
+node_modules/
+data/
+uploads/
+
+.env
+
+reviewed_responses.xlsx
+
+.DS_Store
