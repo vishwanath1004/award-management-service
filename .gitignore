@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.DS_Store
+
+backend/node_modules/
+frontend/node_modules/
+
+backend/data/
+backend/uploads/
+
+backend/reviewed_responses.xlsx
+
+.env
+.env.*
+backend/.env
+frontend/.env

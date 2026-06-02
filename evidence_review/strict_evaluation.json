@@ -1,0 +1,122 @@
+[
+  {
+    "nominee": "Ravi Shankar singh",
+    "status": "Disqualified / not rated",
+    "strict_overall_score": 0,
+    "continuous_improvement_score": 0,
+    "collaboration_score": 0,
+    "innovation_score": 0,
+    "inclusivity_score": 0,
+    "evidence_strength": "None",
+    "strict_evidence_finding": "Nomination appears to be self-nomination from matching nominator/nominee identity and contact, and the content gives only vague statements with no supporting documents.",
+    "strict_reason": "Do not rate as an eligible award nomination. No verifiable action, impact, collaboration, innovation, or equity evidence is provided."
+  },
+  {
+    "nominee": "Mr. Avinash Kumar",
+    "status": "Rated",
+    "strict_overall_score": 2.75,
+    "continuous_improvement_score": 3,
+    "collaboration_score": 3,
+    "innovation_score": 2,
+    "inclusivity_score": 3,
+    "evidence_strength": "Moderate",
+    "strict_evidence_finding": "Images/news/video show work with children and a solar-lamp distribution activity by Renukiran/partner organizations. They do not independently verify the full claimed multi-year scale across youth, women, and all programs.",
+    "strict_reason": "Clear community education support for underprivileged children, but methods are largely conventional and the highest impact claims are not strongly proven by the submitted files."
+  },
+  {
+    "nominee": "Kumari Guddi",
+    "status": "Rated",
+    "strict_overall_score": 3.25,
+    "continuous_improvement_score": 3,
+    "collaboration_score": 3,
+    "innovation_score": 3,
+    "inclusivity_score": 4,
+    "evidence_strength": "Strong, with one invalid file",
+    "strict_evidence_finding": "Videos/images show school-based girls engagement and activity work; certificate verifies National Teachers Award 2023. One Drive file downloaded as empty, and exact claims such as 1,200 girls or 50 child marriages prevented are not directly verified in readable evidence.",
+    "strict_reason": "Strong gender/equity focus and sustained school work are credible. Strictly held at 3s outside inclusivity because the numerical impact claims are not fully corroborated."
+  },
+  {
+    "nominee": "Ghulam Hussain",
+    "status": "Rated",
+    "strict_overall_score": 1.75,
+    "continuous_improvement_score": 2,
+    "collaboration_score": 2,
+    "innovation_score": 1,
+    "inclusivity_score": 2,
+    "evidence_strength": "Weak",
+    "strict_evidence_finding": "Submitted PDF is a scanned magazine/department document; visible first page references general social umbrella themes and scholarships but does not clearly establish the nominee’s specific role or measurable education impact.",
+    "strict_reason": "The submission is broad and claim-heavy, but the evidence does not sufficiently substantiate concrete education leadership, innovation, or sustained outcomes."
+  },
+  {
+    "nominee": "Urfana Amin Moharken",
+    "status": "Rated",
+    "strict_overall_score": 3.25,
+    "continuous_improvement_score": 3,
+    "collaboration_score": 3,
+    "innovation_score": 3,
+    "inclusivity_score": 4,
+    "evidence_strength": "Strong for expertise, moderate for impact numbers",
+    "strict_evidence_finding": "Evidence shows inclusive education workshop, books/manuals on special needs and trainings, and research publications. It supports expertise and inclusive focus, but not all claimed student/teacher outcome numbers.",
+    "strict_reason": "Strong CWSN/inclusion work with credible materials and public evidence. Strictly not 4 overall because the scale and outcome claims are not independently quantified in the evidence files."
+  },
+  {
+    "nominee": "Batskhem Thabah",
+    "status": "Rated",
+    "strict_overall_score": 3.25,
+    "continuous_improvement_score": 3,
+    "collaboration_score": 4,
+    "innovation_score": 3,
+    "inclusivity_score": 3,
+    "evidence_strength": "Strong external article, limited uploaded artifacts",
+    "strict_evidence_finding": "Uploaded PDF mainly lists references/links. ThePrint article directly corroborates school revival, community rebuilding, crowdfunding, living-library work, DERT collaboration, donated books/materials, and village involvement.",
+    "strict_reason": "Excellent collaboration and credible transformation of a remote school. Kept below exemplary overall because uploaded primary evidence is thin and the sustained/systemic impact beyond the village is limited."
+  },
+  {
+    "nominee": "Ashoka Sarma",
+    "status": "Rated",
+    "strict_overall_score": 3.5,
+    "continuous_improvement_score": 4,
+    "collaboration_score": 3,
+    "innovation_score": 3,
+    "inclusivity_score": 4,
+    "evidence_strength": "Strong external corroboration",
+    "strict_evidence_finding": "NorthEast Now article corroborates work beginning in 2003, inclusive admission of CWSN, 500 mainstream students and 64 differently abled students. Other files show media/program recognition and public visibility.",
+    "strict_reason": "Long-running, concrete inclusive education model is well supported. Collaboration and innovation are strong but not rated 4 because evidence is more institution-centered than broad systemic coalition or novel scalable model."
+  },
+  {
+    "nominee": "Prasenjit Sarma",
+    "status": "Rated",
+    "strict_overall_score": 3.25,
+    "continuous_improvement_score": 3,
+    "collaboration_score": 3,
+    "innovation_score": 4,
+    "inclusivity_score": 3,
+    "evidence_strength": "Strong portfolio, limited independent verification of usage numbers",
+    "strict_evidence_finding": "PDFs describe AI education tools, teacher-facing resources, app suite, joyful learning initiatives, and service record. Evidence strongly supports innovation, but many usage figures and impact metrics are self-reported portfolio claims.",
+    "strict_reason": "Highly innovative and plausibly scalable, but strict scoring limits overall because adoption/impact numbers need independent proof and equity focus is present but not the dominant verified evidence."
+  },
+  {
+    "nominee": "Nellore Subrahmanyam",
+    "status": "Rated",
+    "strict_overall_score": 3.5,
+    "continuous_improvement_score": 4,
+    "collaboration_score": 3,
+    "innovation_score": 4,
+    "inclusivity_score": 3,
+    "evidence_strength": "Strong",
+    "strict_evidence_finding": "PDF evidence shows service recognition/deputation, District Science Center role, Space on Wheels, astrotourism/science activities, many program records and links. It supports sustained science education innovation, though not every impact claim is quantified.",
+    "strict_reason": "Sustained and creative science education work is well evidenced. Inclusivity is meaningful for rural/public access but not as deeply targeted to marginalized groups as the top equity-focused nominees."
+  },
+  {
+    "nominee": "Mr. Lakshman J.C.",
+    "status": "Rated",
+    "strict_overall_score": 3,
+    "continuous_improvement_score": 3,
+    "collaboration_score": 4,
+    "innovation_score": 2,
+    "inclusivity_score": 3,
+    "evidence_strength": "Moderate to strong, with discrepancy",
+    "strict_evidence_finding": "42-page Kannada school story visually supports official school transformation. Extracted text indicates enrollment rising from 6 to 43 in 2019-20, while the submission claims more than 110 by 2019-20, so the larger scale claim is not accepted without verification.",
+    "strict_reason": "Strong community mobilization and school revival, but methods are mainly infrastructure/community support rather than highly novel innovation, and one major enrollment claim conflicts with readable evidence."
+  }
+]
