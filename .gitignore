@@ -15,3 +15,11 @@ backend/reviewed_responses.xlsx
 .env.*
 backend/.env
 frontend/.env
+data/
+uploads/
+
+.env
+
+reviewed_responses.xlsx
+
+.DS_Store
