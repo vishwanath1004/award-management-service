@@ -7,3 +7,4 @@ uploads/
 reviewed_responses.xlsx
 
 .DS_Store
+dist/
