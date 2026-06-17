@@ -19,6 +19,7 @@ import {
   startJobProcessing,
 } from "./services/job-processor.js";
 import { orderReviewedRowsForWorkbook } from "./services/review-columns.js";
+import { translateCsvFile } from "./services/bhashini-translation.js";
 
 dotenv.config();
 
@@ -140,6 +141,34 @@ app.post("/upload", upload.single("file"), async (req, res, next) => {
   }
 });
 
+app.post("/translate", upload.single("file"), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: "Please upload a CSV file.",
+      });
+    }
+
+    const result = await translateCsvFile(req.file.path);
+
+    return res.json({
+      success: true,
+      detectedLanguages: result.detectedLanguages,
+      translatedCellCount: result.translatedCellCount,
+      translatedRows: result.translatedRows,
+      translatedCsv: result.translatedCsv,
+      downloadName: `translated_${path
+        .basename(req.file.originalname || "translated.csv")
+        .replace(/\.[^.]+$/, "")}.csv`,
+    });
+  } catch (error) {
+    return next(error);
+  } finally {
+    await fs.unlink(req.file?.path).catch(() => {});
+  }
+});
+
 app.get("/jobs/:jobId", async (req, res) => {
   const job = await readJob(req.params.jobId);
 
@@ -213,6 +242,31 @@ app.use((error, _req, res, _next) => {
 
   if (error.message === "Only CSV files are allowed.") {
     statusCode = 400;
+  }
+
+  if (
+    error.message.includes("Missing Bhashini configuration") ||
+    error.message.includes("Unsupported language detected") ||
+    error.message.includes("Empty CSV file") ||
+    error.message.includes("Invalid CSV format")
+  ) {
+    statusCode = 400;
+  }
+
+  if (
+    error.message.includes("Pipeline model with the request PipelineId does not exist")
+  ) {
+    statusCode = 400;
+    error.message =
+      "The configured BHASHINI_SERVICE_ID or pipeline settings are invalid. Check backend/config/bhashini.config.js.";
+  }
+
+  if (
+    error.message.includes("Bhashini request failed") ||
+    error.message.includes("Bhashini failed to translate") ||
+    error.message.includes("Network failure while calling Bhashini")
+  ) {
+    statusCode = 502;
   }
 
   if (error?.code === "LIMIT_FILE_SIZE") {

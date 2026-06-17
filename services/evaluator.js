@@ -13,6 +13,11 @@ const MAX_RETRIES = Math.max(
   Number.parseInt(process.env.OPENAI_RETRIES || "2", 10) || 2
 );
 
+const ATTACHMENT_FIELD_PATTERN =
+  /(?:evidence|supporting document|supporting documents|project\/work link|project\/work links|attachment|attachments|file|files|photo|photos|image|images|video|videos|link|links)/i;
+const ATTACHMENT_VALUE_PATTERN =
+  /^(?:https?:\/\/|www\.|drive\.google\.com|docs\.google\.com|.*\.(?:pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|mp4|m4v|mov|webm|txt))$/i;
+
 const SYSTEM_PROMPT = `
 You are an expert educational award evaluator reviewing education nomination submissions.
 
@@ -25,6 +30,8 @@ Scoring rubric:
 4 = Exemplary
 
 Evaluation principles:
+- Start from score 1. Increase scores only when the written submission gives clear, specific, concrete support.
+- Treat score 4 as rare. Award 4 only when the submission gives explicit nominee actions, scale, timeframe, outcomes, and sustained/systemic impact.
 - Score each criterion independently.
 - Use only evidence explicitly present in the submission.
 - Consider context, scale, and sustainability of the nominee's efforts.
@@ -85,7 +92,8 @@ Evaluate this nomination against the following criteria:
 Use the rubric definitions and score anchors provided in the system instructions.
 Weight the evidence quality, context, scale, and sustainability of the nominee's work.
 Be strict: do not infer achievements that are not clearly supported by the submission.
-
+Ignore attachment links, file names, images, and document lists when scoring.
+Use only the written narrative fields in the submission.
 Return this exact JSON shape:
 
 {
@@ -106,6 +114,7 @@ Return this exact JSON shape:
     "reason": ""
   },
   "evidences": [],
+  "evidence_summary": "",
   "detailed_summary": ""
 }
 
@@ -163,6 +172,173 @@ function normalizeEvidenceList(value) {
     .filter(Boolean);
 }
 
+function isAttachmentField(key) {
+  return ATTACHMENT_FIELD_PATTERN.test(normalizeText(key));
+}
+
+function isAttachmentValue(value) {
+  const text = normalizeText(value);
+  if (!text) {
+    return true;
+  }
+
+  return ATTACHMENT_VALUE_PATTERN.test(text);
+}
+
+function sanitizeRowForEvaluation(row) {
+  return Object.entries(row ?? {}).reduce((cleanRow, [key, value]) => {
+    if (isAttachmentField(key)) {
+      return cleanRow;
+    }
+
+    if (isAttachmentValue(value)) {
+      return cleanRow;
+    }
+
+    cleanRow[key] = value;
+    return cleanRow;
+  }, {});
+}
+
+function countMatches(text, pattern) {
+  return (text.match(pattern) || []).length;
+}
+
+function analyzeSubmissionContent(content) {
+  const text = String(content ?? "");
+  const lower = text.toLowerCase();
+  const words = lower.match(/[a-z0-9]+/g) || [];
+  const numberCount = countMatches(lower, /\b\d+(?:,\d{2,3})*(?:\.\d+)?%?\b/g);
+  const urlCount = countMatches(lower, /https?:\/\/|drive\.google\.com|docs\.google\.com/g);
+
+  const hasDuration = /\b(since|for\s+\d+|over\s+\d+|years?|months?|ongoing|regular|weekly|monthly|daily|sustained|repeated|continued|continuously|long-term)\b/i.test(text);
+  const hasOutcome = /\b(improved|increased|reduced|enrolled|retained|completed|passed|benefited|trained|supported|mainstreamed|attendance|learning|outcome|impact|result|achievement|transformed)\b/i.test(text);
+  const hasStakeholder = /\b(parent|parents|teacher|teachers|community|students|children|government|ngo|partner|partners|volunteer|volunteers|committee|panchayat|village|school management|stakeholder|stakeholders|donor|donors)\b/i.test(text);
+  const hasInnovation = /\b(innovative|innovation|creative|new|unique|first|model|tool|app|digital|technology|low-cost|adapted|prototype|method|pedagogy|activity-based|community-based|resource|solution)\b/i.test(text);
+  const hasEquity = /\b(marginalised|marginalized|vulnerable|underserved|disadvantaged|poor|rural|tribal|girls|girl|women|gender|disability|disabled|cwsn|special needs|inclusive|inclusion|equity|minority|remote|barrier|access)\b/i.test(text);
+
+  return {
+    wordCount: words.length,
+    numberCount,
+    urlCount,
+    hasDuration,
+    hasOutcome,
+    hasStakeholder,
+    hasInnovation,
+    hasEquity,
+  };
+}
+
+function serializeRowValues(row) {
+  return Object.values(row ?? {})
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function capCriterion(criterion, maxScore, reason, notes) {
+  if (criterion.score <= maxScore) {
+    return;
+  }
+
+  criterion.score = maxScore;
+  criterion.reason = `${criterion.reason} Strict validation cap: ${reason}.`.trim();
+  notes.push(reason);
+}
+
+function applyStrictValidation(review, content) {
+  const signals = analyzeSubmissionContent(content);
+  const notes = [];
+  const criteria = [
+    review.continuous_improvement,
+    review.collaboration,
+    review.innovation,
+    review.inclusivity,
+  ];
+
+  if (signals.wordCount < 80) {
+    criteria.forEach((criterion) =>
+      capCriterion(criterion, 1, "very limited written submission detail", notes)
+    );
+  } else if (signals.wordCount < 160) {
+    criteria.forEach((criterion) =>
+      capCriterion(criterion, 2, "limited written submission detail", notes)
+    );
+  }
+
+  if (signals.numberCount === 0 && !signals.hasDuration && !signals.hasOutcome) {
+    criteria.forEach((criterion) =>
+      capCriterion(criterion, 2, "no concrete scale, timeframe, or outcome detail in the written submission", notes)
+    );
+  }
+
+  if (!signals.hasDuration) {
+    capCriterion(
+      review.continuous_improvement,
+      2,
+      "continuous improvement lacks explicit timeframe or repeated effort",
+      notes
+    );
+  }
+
+  if (!signals.hasStakeholder) {
+    capCriterion(
+      review.collaboration,
+      2,
+      "collaboration lacks named stakeholders or shared work",
+      notes
+    );
+  }
+
+  if (!signals.hasInnovation) {
+    capCriterion(
+      review.innovation,
+      2,
+      "innovation lacks a clearly described new method, tool, model, or creative approach",
+      notes
+    );
+  }
+
+  if (!signals.hasEquity) {
+    capCriterion(
+      review.inclusivity,
+      2,
+      "inclusivity lacks a specific marginalized or vulnerable group focus",
+      notes
+    );
+  }
+
+  const allowsExemplary =
+    signals.wordCount >= 250 &&
+    signals.numberCount >= 2 &&
+    signals.hasDuration &&
+    signals.hasOutcome;
+
+  if (!allowsExemplary) {
+    criteria.forEach((criterion) =>
+      capCriterion(
+        criterion,
+        3,
+        "score 4 requires explicit scale, timeframe, measurable outcomes, and sustained impact",
+        notes
+      )
+    );
+  }
+
+  const overallScore =
+    (review.continuous_improvement.score +
+      review.collaboration.score +
+      review.innovation.score +
+      review.inclusivity.score) /
+    4;
+
+  review.overall_score = Number(overallScore.toFixed(2));
+  review.evidence_count = review.evidences.length;
+  review.strict_validation_notes = [...new Set(notes)].join("; ");
+
+  return review;
+}
+
 function normalizeReview(review) {
   const continuous = review?.continuous_improvement || {};
   const collaboration = review?.collaboration || {};
@@ -187,7 +363,9 @@ function normalizeReview(review) {
       reason: normalizeText(inclusivity.reason),
     },
     evidences: normalizeEvidenceList(review?.evidences),
+    evidence_summary: normalizeText(review?.evidence_summary),
     detailed_summary: normalizeText(review?.detailed_summary),
+    strict_validation_notes: "",
   };
 
   const overallScore =
@@ -222,6 +400,7 @@ function fallbackReview() {
       reason: "Evaluation failed",
     },
     evidences: [],
+    evidence_summary: "AI evaluation failed",
     detailed_summary: "AI evaluation failed",
   });
 }
@@ -258,7 +437,9 @@ export async function evaluateNomination(row, context = {}) {
 
   try {
 
-    const content = JSON.stringify(row);
+    const evaluationRow = sanitizeRowForEvaluation(row);
+    const content = JSON.stringify(evaluationRow);
+    const validationContent = serializeRowValues(evaluationRow);
     const promptDebug = buildEvaluationDebug(content, context);
     let lastError = null;
 
@@ -270,7 +451,7 @@ export async function evaluateNomination(row, context = {}) {
         });
         const parsed = JSON.parse(rawContent);
         return {
-          ...normalizeReview(parsed),
+          ...applyStrictValidation(normalizeReview(parsed), validationContent),
           __evaluation_debug: promptDebug,
         };
       } catch (error) {
@@ -285,7 +466,7 @@ export async function evaluateNomination(row, context = {}) {
     console.log("AI Evaluation Error:", error);
     const fallback = fallbackReview();
     fallback.__evaluation_debug = buildEvaluationDebug(
-      JSON.stringify(row),
+      JSON.stringify(sanitizeRowForEvaluation(row)),
       context
     );
     return fallback;

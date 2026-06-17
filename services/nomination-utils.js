@@ -95,6 +95,11 @@ const SCORE_LABELS = {
   4: "Exemplary",
 };
 
+const EVIDENCE_URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/gi;
+const EVIDENCE_FILE_PATTERN = /\b[\w.-]+\.(?:pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|mp4|m4v|mov|webm|txt)\b/gi;
+const DRIVE_ID_PATTERN = /\b(?:https?:\/\/)?(?:drive|docs)\.google\.com\/[^\s<>"')\]]+/gi;
+const FILE_PATH_PATTERN = /\b(?:[A-Za-z]:\\|\/)?[\w./-]+\.(?:pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|mp4|m4v|mov|webm|txt)\b/gi;
+
 function normalizeKey(value) {
   return String(value ?? "")
     .replace(/\s+/g, " ")
@@ -181,6 +186,62 @@ function formatScoreLabel(score) {
   return SCORE_LABELS[normalized] || "";
 }
 
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function splitMultiValueText(value) {
+  return String(value ?? "")
+    .split(/[\n,;|]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function summarizeEvidenceList(evidences) {
+  if (!Array.isArray(evidences) || evidences.length === 0) {
+    return "";
+  }
+
+  const cleanEvidence = evidences
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+
+  if (cleanEvidence.length === 0) {
+    return "";
+  }
+
+  if (cleanEvidence.length <= 3) {
+    return cleanEvidence.join("; ");
+  }
+
+  return `${cleanEvidence.slice(0, 3).join("; ")}; and ${cleanEvidence.length - 3} more`;
+}
+
+function extractEvidenceLinks(row) {
+  const links = [];
+
+  for (const [key, value] of Object.entries(row ?? {})) {
+    const text = String(value ?? "").trim();
+
+    if (!text) {
+      continue;
+    }
+
+    const urls = text.match(EVIDENCE_URL_PATTERN) || [];
+    const driveLinks = text.match(DRIVE_ID_PATTERN) || [];
+    const fileRefs = text.match(EVIDENCE_FILE_PATTERN) || [];
+    const pathRefs = text.match(FILE_PATH_PATTERN) || [];
+
+    links.push(...urls, ...driveLinks, ...fileRefs, ...pathRefs);
+  }
+
+  const normalizedLinks = uniqueValues(
+    links.flatMap((item) => splitMultiValueText(item))
+  );
+
+  return normalizedLinks.join(", ");
+}
+
 function getNomineeDetails(row) {
   const nomineeName = getField(row, NOMINEE_NAME_KEYS);
   const nomineeContact = getField(row, NOMINEE_CONTACT_KEYS);
@@ -235,19 +296,36 @@ export function isSelfNomination(row) {
   const inferredSelfNomination =
     (nameMatches && (emailMatches || phoneMatches)) || (emailMatches && phoneMatches);
 
-  const detected = explicitSelfNomination || precomputedNameMatch || precomputedEmailMatch || inferredSelfNomination;
+  const hasIdentityEvidence =
+    Boolean(nominee.normalizedName || nominee.email || nominee.phone) &&
+    Boolean(nominator.normalizedName || nominator.email || nominator.phone);
+
+  const hasIdentityConflict =
+    (nominee.normalizedName &&
+      nominator.normalizedName &&
+      nominee.normalizedName !== nominator.normalizedName) ||
+    (nominee.email && nominator.email && nominee.email !== nominator.email) ||
+    (nominee.phone && nominator.phone && nominee.phone !== nominator.phone);
+
+  const precomputedSelfNomination =
+    explicitSelfNomination || precomputedNameMatch || precomputedEmailMatch;
+
+  const detected =
+    inferredSelfNomination ||
+    (precomputedSelfNomination && !hasIdentityConflict) ||
+    (precomputedSelfNomination && !hasIdentityEvidence);
 
   const reasonParts = [];
 
-  if (explicitSelfNomination) {
+  if (explicitSelfNomination && !hasIdentityConflict) {
     reasonParts.push("explicit self-nomination flag");
   }
 
-  if (precomputedNameMatch) {
+  if (precomputedNameMatch && !hasIdentityConflict) {
     reasonParts.push("name matched");
   }
 
-  if (precomputedEmailMatch) {
+  if (precomputedEmailMatch && !hasIdentityConflict) {
     reasonParts.push("email matched");
   }
 
@@ -274,6 +352,7 @@ export function buildSkippedRow(row, selfNominationInfo) {
     evaluation_status: "Self nomination - skipped",
     self_nomination_detected: "Yes",
     self_nomination_reason: selfNominationInfo.reason,
+    strict_validation_notes: "Skipped from rating because self nomination was detected.",
     continuous_improvement_score: "Not rated",
     continuous_improvement_reason: skippedReason,
     collaboration_score: "Not rated",
@@ -284,18 +363,25 @@ export function buildSkippedRow(row, selfNominationInfo) {
     inclusivity_reason: skippedReason,
     overall_score: "Not rated",
     evidence_count: "Not rated",
+    evidence_links: extractEvidenceLinks(row),
+    evidence_summary: "",
     evidences: "",
     detailed_summary: "Skipped because this row was detected as a self nomination.",
   };
 }
 
 export function buildEvaluatedRow(row, aiReview) {
+  const evidenceLinks = extractEvidenceLinks(row);
+  const evidenceSummary =
+    aiReview.evidence_summary || summarizeEvidenceList(aiReview.evidences);
+
   return {
     ...row,
     nominee_name: getField(row, NOMINEE_NAME_KEYS) || "Unknown",
     evaluation_status: "Evaluated",
     self_nomination_detected: "No",
     self_nomination_reason: "",
+    strict_validation_notes: aiReview.strict_validation_notes || "",
     continuous_improvement_score: formatScoreLabel(
       aiReview.continuous_improvement.score
     ),
@@ -308,6 +394,8 @@ export function buildEvaluatedRow(row, aiReview) {
     inclusivity_reason: aiReview.inclusivity.reason,
     overall_score: aiReview.overall_score,
     evidence_count: aiReview.evidence_count,
+    evidence_links: evidenceLinks,
+    evidence_summary: evidenceSummary,
     evidences: Array.isArray(aiReview.evidences) ? aiReview.evidences.join(", ") : "",
     detailed_summary: aiReview.detailed_summary,
   };
