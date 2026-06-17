@@ -11,12 +11,52 @@ const STATUS_LABELS = {
   failed: "Failed",
 };
 
+const REVIEW_COLUMNS = [
+  { key: "nominee_name", label: "Nominee" },
+  { key: "evaluation_status", label: "Status" },
+  { key: "self_nomination_detected", label: "Self Nomination" },
+  { key: "self_nomination_reason", label: "Self Nomination Reason" },
+  { key: "strict_validation_notes", label: "Strict Validation Notes" },
+  { key: "overall_score", label: "Overall Score" },
+  {
+    key: "continuous_improvement_score",
+    label: "Commitment to Continuous Improvement",
+  },
+  {
+    key: "continuous_improvement_reason",
+    label: "Commitment to Continuous Improvement Justification",
+  },
+  { key: "collaboration_score", label: "Collaboration & Engagement" },
+  {
+    key: "collaboration_reason",
+    label: "Collaboration & Engagement Justification",
+  },
+  { key: "innovation_score", label: "Innovation & Creativity" },
+  {
+    key: "innovation_reason",
+    label: "Innovation & Creativity Justification",
+  },
+  { key: "inclusivity_score", label: "Inclusivity & Equity" },
+  {
+    key: "inclusivity_reason",
+    label: "Inclusivity & Equity Justification",
+  },
+  { key: "evidence_count", label: "Evidence Count" },
+  { key: "evidence_links", label: "Evidence Links from Original Sheet" },
+  { key: "evidence_summary", label: "Evidence Summary" },
+  { key: "evidences", label: "AI Evidences" },
+  { key: "detailed_summary", label: "Detailed Summary" },
+];
+
+const REVIEW_COLUMN_KEYS = new Set(REVIEW_COLUMNS.map((column) => column.key));
+const INTERNAL_EXCLUDED_COLUMNS = new Set(["__evaluation_debug"]);
 const styles = {
   page: {
     fontFamily: "Arial, sans-serif",
     padding: 24,
     color: "#111827",
-    background: "#f3f4f6",
+    background:
+      "linear-gradient(180deg, #eef2ff 0%, #f8fafc 35%, #f3f4f6 100%)",
     minHeight: "100vh",
   },
   shell: {
@@ -24,8 +64,9 @@ const styles = {
     margin: "0 auto",
     background: "#ffffff",
     border: "1px solid #e5e7eb",
-    borderRadius: 8,
+    borderRadius: 16,
     padding: 24,
+    boxShadow: "0 20px 45px rgba(15, 23, 42, 0.06)",
   },
   header: {
     marginBottom: 20,
@@ -50,6 +91,33 @@ const styles = {
     color: "#6b7280",
     fontSize: 14,
   },
+  note: {
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+  tabs: {
+    display: "inline-flex",
+    gap: 8,
+    padding: 4,
+    borderRadius: 999,
+    background: "#e2e8f0",
+    marginBottom: 18,
+  },
+  tabButton: {
+    border: 0,
+    background: "transparent",
+    padding: "10px 16px",
+    borderRadius: 999,
+    cursor: "pointer",
+    fontWeight: 700,
+    color: "#475569",
+  },
+  tabButtonActive: {
+    background: "#0f172a",
+    color: "#fff",
+    boxShadow: "0 10px 20px rgba(15, 23, 42, 0.18)",
+  },
   panel: {
     border: "1px solid #e5e7eb",
     borderRadius: 8,
@@ -67,13 +135,17 @@ const styles = {
     width: "100%",
     borderCollapse: "collapse",
     background: "#fff",
+    tableLayout: "fixed",
   },
   th: {
     textAlign: "left",
     padding: 12,
     borderBottom: "1px solid #e5e7eb",
     background: "#f9fafb",
-    whiteSpace: "nowrap",
+    whiteSpace: "normal",
+    verticalAlign: "top",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
     fontSize: 14,
   },
   td: {
@@ -81,6 +153,9 @@ const styles = {
     borderBottom: "1px solid #f3f4f6",
     verticalAlign: "top",
     fontSize: 14,
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   tag: {
     display: "inline-block",
@@ -102,7 +177,83 @@ const styles = {
     height: "100%",
     background: "#2563eb",
   },
+  translateDrop: {
+    marginTop: 16,
+    border: "1px dashed #cbd5e1",
+    borderRadius: 12,
+    padding: 16,
+    background: "#f8fafc",
+  },
+  downloadButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textDecoration: "none",
+    padding: "10px 16px",
+    borderRadius: 6,
+    border: "1px solid #059669",
+    background: "#059669",
+    color: "#fff",
+    fontWeight: 700,
+  },
 };
+
+function formatCellValue(value) {
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value);
+}
+
+function getOriginalColumns(reviewedRows) {
+  if (!Array.isArray(reviewedRows) || reviewedRows.length === 0) {
+    return [];
+  }
+
+  return Object.keys(reviewedRows[0]).filter(
+    (key) => !REVIEW_COLUMN_KEYS.has(key) && !INTERNAL_EXCLUDED_COLUMNS.has(key)
+  );
+}
+
+function getColumnWidth(column) {
+  const widths = {
+    nominee_name: 180,
+    evaluation_status: 140,
+    self_nomination_detected: 130,
+    self_nomination_reason: 260,
+    strict_validation_notes: 300,
+    overall_score: 110,
+    continuous_improvement_score: 180,
+    continuous_improvement_reason: 260,
+    collaboration_score: 170,
+    collaboration_reason: 260,
+    innovation_score: 160,
+    innovation_reason: 260,
+    inclusivity_score: 160,
+    inclusivity_reason: 260,
+    evidence_count: 120,
+    evidence_links: 280,
+    evidence_summary: 280,
+    evidences: 280,
+    detailed_summary: 320,
+  };
+
+  return widths[column.key] || 180;
+}
+
+function buildTranslatedDownloadName(fileName) {
+  if (!fileName) {
+    return "translated_for_evaluation.csv";
+  }
+
+  const baseName = String(fileName).replace(/\.csv$/i, "");
+  return `${baseName}_translated_en.csv`;
+}
 
 function formatProgress(job) {
   if (!job?.totalRows) {
@@ -144,12 +295,326 @@ function logEvaluationDebug(jobId, reviewedRows) {
   console.log(`========== AI EVALUATION DEBUG END | Job ${jobId} ==========`);
 }
 
+function EvaluatePanel({
+  setFile,
+  uploading,
+  uploadFile,
+  job,
+  reviewed,
+  error,
+  downloadUrl,
+}) {
+  const jobStatus = job?.status ? STATUS_LABELS[job.status] || job.status : "";
+  const progressPercent =
+    job?.totalRows && job.totalRows > 0
+      ? Math.min(100, Math.round(((job.processedRows || 0) / job.totalRows) * 100))
+      : 0;
+  const originalColumns = useMemo(() => getOriginalColumns(reviewed), [reviewed]);
+  const tableColumns = useMemo(
+    () => [
+      ...REVIEW_COLUMNS,
+      ...originalColumns.map((key) => ({ key, label: key })),
+    ],
+    [originalColumns]
+  );
+
+  return (
+    <>
+      <div style={styles.row}>
+        <input
+          type="file"
+          accept=".csv"
+          onChange={(e) => setFile(e.target.files[0] || null)}
+        />
+
+        <button onClick={uploadFile} style={styles.button} disabled={uploading}>
+          {uploading ? "Processing..." : "Upload CSV"}
+        </button>
+
+        {job?.id && job.status === "completed" && (
+          <a href={downloadUrl} target="_blank" rel="noreferrer">
+            Download workbook
+          </a>
+        )}
+      </div>
+
+      {error && (
+        <div
+          style={{
+            ...styles.panel,
+            borderColor: "#fecaca",
+            background: "#fef2f2",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {job?.id && (
+        <div style={styles.panel}>
+          <div style={styles.row}>
+            <strong>Job ID:</strong>
+            <span style={styles.tag}>{job.id}</span>
+            {jobStatus && <span style={styles.tag}>{jobStatus}</span>}
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <div style={styles.muted}>Progress: {formatProgress(job)}</div>
+            <div style={styles.progressTrack}>
+              <div
+                style={{
+                  ...styles.progressBar,
+                  width: `${progressPercent}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ ...styles.row, marginTop: 16 }}>
+            <div>
+              <div style={styles.muted}>Evaluated rows</div>
+              <strong>{job.evaluatedRows || 0}</strong>
+            </div>
+            <div>
+              <div style={styles.muted}>Skipped rows</div>
+              <strong>{job.skippedRows || 0}</strong>
+            </div>
+            <div>
+              <div style={styles.muted}>Failed rows</div>
+              <strong>{job.failedRows || 0}</strong>
+            </div>
+          </div>
+
+          {job.errorMessage && (
+            <div style={{ marginTop: 12, color: "#b91c1c" }}>
+              {job.errorMessage}
+            </div>
+          )}
+        </div>
+      )}
+
+      {reviewed.length > 0 && (
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                {tableColumns.map((column) => (
+                  <th
+                    key={column.key}
+                    style={{
+                      ...styles.th,
+                      width: getColumnWidth(column),
+                      minWidth: getColumnWidth(column),
+                      maxWidth: getColumnWidth(column),
+                    }}
+                  >
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {reviewed.map((item, index) => (
+                <tr key={`${item.nominee_name}-${index}`}>
+                  {tableColumns.map((column) => (
+                    <td
+                      key={column.key}
+                      style={{
+                        ...styles.td,
+                        width: getColumnWidth(column),
+                        minWidth: getColumnWidth(column),
+                        maxWidth: getColumnWidth(column),
+                      }}
+                    >
+                      {formatCellValue(item[column.key])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+function TranslatePanel({
+  translateFile,
+  setTranslateFile,
+  translateRun,
+  translateError,
+  translateUploading,
+  translatedRows,
+  translatedLanguages,
+  translatedCellCount,
+  translatedDownloadUrl,
+  translatedDownloadName,
+}) {
+  const translatedColumns = useMemo(
+    () => (translatedRows.length > 0 ? Object.keys(translatedRows[0]) : []),
+    [translatedRows]
+  );
+
+  return (
+    <>
+      {/* <div style={{ ...styles.panel, marginTop: 0, background: "#f8fafc" }}>
+        <div style={styles.row}>
+          <span style={styles.tag}>Configured on server</span>
+          <span style={styles.tag}>Bhashini powered</span>
+          <span style={styles.tag}>CSV to English</span>
+        </div>
+
+        <p style={{ ...styles.note, marginBottom: 0 }}>
+          The translation provider settings live in{" "}
+          <code>backend/config/bhashini.config.js</code>. You only upload the
+          CSV here, and the app translates the rows into English with
+          evaluator-friendly column headers so the output can flow straight
+          into the Evaluate tab.
+        </p>
+      </div> */}
+
+      <div style={styles.translateDrop}>
+        <div style={styles.row}>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={(e) => {
+              const nextFile = e.target.files[0] || null;
+              setTranslateFile(nextFile);
+            }}
+          />
+
+          <button
+            onClick={translateRun}
+            style={styles.button}
+            disabled={translateUploading}
+          >
+            {translateUploading ? "Translating..." : "Translate CSV"}
+          </button>
+
+          {translatedDownloadUrl && (
+            <a
+              href={translatedDownloadUrl}
+              download={translatedDownloadName || "translated.csv"}
+              style={styles.downloadButton}
+            >
+              Download translated CSV
+            </a>
+          )}
+        </div>
+
+        <p style={{ ...styles.note, marginBottom: 0 }}>
+          Supported source languages: Kannada, Hindi, Telugu, Tamil, and
+          Malayalam. The translated sheet keeps the same row order but renames
+          the headers into English fields that the evaluation flow recognizes.
+        </p>
+
+        {translateFile?.name && (
+          <div style={{ marginTop: 12, color: "#334155", fontSize: 13 }}>
+            Selected file: <strong>{translateFile.name}</strong>
+          </div>
+        )}
+      </div>
+
+      {translateError && (
+        <div
+          style={{
+            ...styles.panel,
+            borderColor: "#fecaca",
+            background: "#fef2f2",
+          }}
+        >
+          {translateError}
+        </div>
+      )}
+
+      {(translatedRows.length > 0 || translatedLanguages.length > 0) && (
+        <div style={styles.panel}>
+          <div style={styles.row}>
+            <span style={styles.tag}>
+              Detected languages:{" "}
+              {translatedLanguages.length > 0
+                ? translatedLanguages.join(", ")
+                : "English only"}
+            </span>
+            <span style={styles.tag}>
+              Translated cells: {translatedCellCount || 0}
+            </span>
+            <span style={styles.tag}>Rows: {translatedRows.length || 0}</span>
+          </div>
+        </div>
+      )}
+
+      {translatedRows.length > 0 && (
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                {translatedColumns.map((column) => (
+                  <th
+                    key={column}
+                    style={{
+                      ...styles.th,
+                      width: getColumnWidth({ key: column }),
+                      minWidth: getColumnWidth({ key: column }),
+                      maxWidth: getColumnWidth({ key: column }),
+                    }}
+                  >
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {translatedRows.map((row, rowIndex) => (
+                <tr key={`${row.nominee_name || "row"}-${rowIndex}`}>
+                  {translatedColumns.map((column) => (
+                    <td
+                      key={column}
+                      style={{
+                        ...styles.td,
+                        width: getColumnWidth({ key: column }),
+                        minWidth: getColumnWidth({ key: column }),
+                        maxWidth: getColumnWidth({ key: column }),
+                      }}
+                    >
+                      {formatCellValue(row[column])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState("evaluate");
+
+  // Evaluation state
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [job, setJob] = useState(null);
   const [reviewed, setReviewed] = useState([]);
   const [error, setError] = useState("");
+
+  // Translation state
+  const [translateSourceFile, setTranslateSourceFile] = useState(null);
+  const [translatedDownloadName, setTranslatedDownloadName] = useState(
+    "translated_for_evaluation.csv"
+  );
+  const [translateUploading, setTranslateUploading] = useState(false);
+  const [translateError, setTranslateError] = useState("");
+  const [translatedRows, setTranslatedRows] = useState([]);
+  const [translatedLanguages, setTranslatedLanguages] = useState([]);
+  const [translatedCellCount, setTranslatedCellCount] = useState(0);
+  const [translatedCsv, setTranslatedCsv] = useState("");
+  const [translatedDownloadUrl, setTranslatedDownloadUrl] = useState("");
+
   const pollRef = useRef(null);
 
   const downloadUrl = useMemo(() => {
@@ -159,6 +624,26 @@ export default function App() {
 
     return `${API_BASE_URL}/jobs/${job.id}/download`;
   }, [job?.id]);
+
+  useEffect(() => {
+    if (translatedDownloadUrl) {
+      URL.revokeObjectURL(translatedDownloadUrl);
+    }
+
+    if (!translatedCsv) {
+      setTranslatedDownloadUrl("");
+      return undefined;
+    }
+
+    const blob = new Blob([translatedCsv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+
+    setTranslatedDownloadUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [translatedCsv]);
 
   const stopPolling = () => {
     if (pollRef.current) {
@@ -252,135 +737,116 @@ export default function App() {
     }
   };
 
-  const jobStatus = job?.status ? STATUS_LABELS[job.status] || job.status : "";
-  const progressPercent =
-    job?.totalRows && job.totalRows > 0
-      ? Math.min(100, Math.round(((job.processedRows || 0) / job.totalRows) * 100))
-      : 0;
+  const runTranslation = async () => {
+    setTranslateError("");
+
+    if (!translateSourceFile) {
+      setTranslateError("Please upload a CSV file to translate.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", translateSourceFile);
+
+    setTranslateUploading(true);
+    setTranslatedRows([]);
+    setTranslatedLanguages([]);
+    setTranslatedCellCount(0);
+    setTranslatedCsv("");
+
+    try {
+      const res = await axios.post(`${API_BASE_URL}/translate`, formData);
+      const nextRows = res.data.translatedRows || res.data.translated || [];
+
+      setTranslatedRows(nextRows);
+      setTranslatedLanguages(res.data.detectedLanguages || []);
+      setTranslatedCellCount(res.data.translatedCellCount || 0);
+      setTranslatedCsv(res.data.translatedCsv || "");
+      setTranslatedDownloadName(
+        res.data.downloadName ||
+          buildTranslatedDownloadName(translateSourceFile?.name)
+      );
+    } catch (translateUploadError) {
+      setTranslatedRows([]);
+      setTranslatedLanguages([]);
+      setTranslatedCsv("");
+      setTranslatedDownloadUrl("");
+      setTranslateError(
+        translateUploadError?.response?.data?.error ||
+          "Translation failed. Please try again."
+      );
+    } finally {
+      setTranslateUploading(false);
+    }
+  };
 
   return (
     <div style={styles.page}>
       <div style={styles.shell}>
-        <div style={styles.header}>
-          <h1 style={{ margin: 0 }}>AI Nomination Evaluation</h1>
-          <p style={{ margin: "8px 0 0", ...styles.muted }}>
-            Upload a CSV, track the job, and download the reviewed workbook when
-            processing finishes.
-          </p>
-        </div>
+      <div style={styles.header}>
+        <h1 style={{ margin: 0 }}>Shikshagraha award Nomination Evaluation</h1>
+      </div>
 
-        <div style={styles.row}>
-          <input
-            type="file"
-            accept=".csv"
-            onChange={(e) => setFile(e.target.files[0] || null)}
-          />
-
-          <button onClick={uploadFile} style={styles.button} disabled={uploading}>
-            {uploading ? "Processing..." : "Upload CSV"}
+        <div style={styles.tabs} role="tablist" aria-label="Evaluation tabs">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "evaluate"}
+            onClick={() => setActiveTab("evaluate")}
+            style={{
+              ...styles.tabButton,
+              ...(activeTab === "evaluate" ? styles.tabButtonActive : null),
+            }}
+          >
+            Evaluate
           </button>
-
-          {job?.id && job.status === "completed" && (
-            <a href={downloadUrl} target="_blank" rel="noreferrer">
-              Download workbook
-            </a>
-          )}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "translate"}
+            onClick={() => setActiveTab("translate")}
+            style={{
+              ...styles.tabButton,
+              ...(activeTab === "translate" ? styles.tabButtonActive : null),
+            }}
+          >
+            Translate
+          </button>
         </div>
 
-        {error && (
-          <div style={{ ...styles.panel, borderColor: "#fecaca", background: "#fef2f2" }}>
-            {error}
-          </div>
-        )}
-
-        {job?.id && (
-          <div style={styles.panel}>
-            <div style={styles.row}>
-              <strong>Job ID:</strong>
-              <span style={styles.tag}>{job.id}</span>
-              {jobStatus && <span style={styles.tag}>{jobStatus}</span>}
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <div style={styles.muted}>Progress: {formatProgress(job)}</div>
-              <div style={styles.progressTrack}>
-                <div
-                  style={{
-                    ...styles.progressBar,
-                    width: `${progressPercent}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ ...styles.row, marginTop: 16 }}>
-              <div>
-                <div style={styles.muted}>Evaluated rows</div>
-                <strong>{job.evaluatedRows || 0}</strong>
-              </div>
-              <div>
-                <div style={styles.muted}>Skipped rows</div>
-                <strong>{job.skippedRows || 0}</strong>
-              </div>
-              <div>
-                <div style={styles.muted}>Failed rows</div>
-                <strong>{job.failedRows || 0}</strong>
-              </div>
-            </div>
-
-            {job.errorMessage && (
-              <div style={{ marginTop: 12, color: "#b91c1c" }}>
-                {job.errorMessage}
-              </div>
-            )}
-          </div>
-        )}
-
-        {reviewed.length > 0 && (
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Nominee</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Self Nomination</th>
-                  <th style={styles.th}>Self Nomination Reason</th>
-                  <th style={styles.th}>Overall</th>
-                  <th style={styles.th}>Continuous Rating</th>
-                  <th style={styles.th}>Collaboration Rating</th>
-                  <th style={styles.th}>Innovation Rating</th>
-                  <th style={styles.th}>Inclusivity Rating</th>
-                  <th style={styles.th}>Evidence Count</th>
-                  <th style={styles.th}>Evidences</th>
-                  <th style={styles.th}>Summary</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reviewed.map((item, index) => (
-                  <tr key={`${item.nominee_name}-${index}`}>
-                    <td style={styles.td}>{item.nominee_name}</td>
-                    <td style={styles.td}>{item.evaluation_status}</td>
-                    <td style={styles.td}>{item.self_nomination_detected || ""}</td>
-                    <td style={{ ...styles.td, minWidth: 260, wordBreak: "break-word" }}>
-                      {item.self_nomination_reason || ""}
-                    </td>
-                    <td style={styles.td}>{item.overall_score || ""}</td>
-                    <td style={styles.td}>{item.continuous_improvement_score || ""}</td>
-                    <td style={styles.td}>{item.collaboration_score || ""}</td>
-                    <td style={styles.td}>{item.innovation_score || ""}</td>
-                    <td style={styles.td}>{item.inclusivity_score || ""}</td>
-                    <td style={styles.td}>{item.evidence_count || ""}</td>
-                    <td style={{ ...styles.td, minWidth: 240, wordBreak: "break-word" }}>
-                      {item.evidences}
-                    </td>
-                    <td style={{ ...styles.td, minWidth: 360, wordBreak: "break-word" }}>
-                      {item.detailed_summary}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {activeTab === "evaluate" ? (
+          <EvaluatePanel
+            setFile={setFile}
+            uploading={uploading}
+            uploadFile={uploadFile}
+            job={job}
+            reviewed={reviewed}
+            error={error}
+            downloadUrl={downloadUrl}
+          />
+        ) : (
+          <TranslatePanel
+            translateFile={translateSourceFile}
+            setTranslateFile={(nextFile) => {
+              setTranslateSourceFile(nextFile);
+              setTranslatedRows([]);
+              setTranslatedLanguages([]);
+              setTranslatedCellCount(0);
+              setTranslatedCsv("");
+              setTranslatedDownloadUrl("");
+              setTranslatedDownloadName(
+                buildTranslatedDownloadName(nextFile?.name)
+              );
+            }}
+            translateRun={runTranslation}
+            translateError={translateError}
+            translateUploading={translateUploading}
+            translatedRows={translatedRows}
+            translatedLanguages={translatedLanguages}
+            translatedCellCount={translatedCellCount}
+            translatedDownloadUrl={translatedDownloadUrl}
+            translatedDownloadName={translatedDownloadName}
+          />
         )}
       </div>
     </div>
