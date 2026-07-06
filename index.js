@@ -47,7 +47,10 @@ function parseByteSize(value, fallbackBytes) {
 }
 
 const PORT = Number.parseInt(process.env.PORT || "5008", 10);
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
+const CORS_ORIGIN = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 const MAX_UPLOAD_SIZE = parseByteSize(process.env.MAX_UPLOAD_SIZE, 10 * 1024 * 1024);
 
 await ensureJobStorage();

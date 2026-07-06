@@ -4,13 +4,18 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost",
+    "X-Title": process.env.OPENROUTER_APP_NAME || "AI Evaluation App"
+  }
 });
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const MODEL = process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 const MAX_RETRIES = Math.max(
   0,
-  Number.parseInt(process.env.OPENAI_RETRIES || "2", 10) || 2
+  Number.parseInt(process.env.OPENROUTER_RETRIES || "2", 10) || 2
 );
 
 const ATTACHMENT_FIELD_PATTERN =
