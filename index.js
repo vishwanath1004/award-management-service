@@ -101,14 +101,17 @@ async function writeWorkbookFromRows(rows, filePath) {
   XLSX.writeFile(workbook, filePath);
 }
 
-app.get("/health", (_req, res) => {
+const API_PREFIX = process.env.API_PREFIX || "/sg-api";
+const router = express.Router();
+
+router.get("/health", (_req, res) => {
   res.json({
     success: true,
     status: "ok",
   });
 });
 
-app.post("/upload", upload.single("file"), async (req, res, next) => {
+router.post("/upload", upload.single("file"), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -144,7 +147,7 @@ app.post("/upload", upload.single("file"), async (req, res, next) => {
   }
 });
 
-app.post("/translate", upload.single("file"), async (req, res, next) => {
+router.post("/translate", upload.single("file"), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -172,7 +175,7 @@ app.post("/translate", upload.single("file"), async (req, res, next) => {
   }
 });
 
-app.get("/jobs/:jobId", async (req, res) => {
+router.get("/jobs/:jobId", async (req, res) => {
   const job = await readJob(req.params.jobId);
 
   if (!job) {
@@ -188,7 +191,7 @@ app.get("/jobs/:jobId", async (req, res) => {
   });
 });
 
-app.get("/jobs/:jobId/results", async (req, res) => {
+router.get("/jobs/:jobId/results", async (req, res) => {
   const job = await readJob(req.params.jobId);
 
   if (!job) {
@@ -208,7 +211,7 @@ app.get("/jobs/:jobId/results", async (req, res) => {
   });
 });
 
-app.get("/jobs/:jobId/download", async (req, res) => {
+router.get("/jobs/:jobId/download", async (req, res) => {
   const job = await readJob(req.params.jobId);
 
   if (!job) {
@@ -239,6 +242,9 @@ app.get("/jobs/:jobId/download", async (req, res) => {
 
   return res.download(outputPath, `reviewed_responses_${job.id}.xlsx`);
 });
+
+app.use(router);
+app.use(API_PREFIX, router);
 
 app.use((error, _req, res, _next) => {
   let statusCode = 500;
