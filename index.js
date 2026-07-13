@@ -301,7 +301,6 @@ router.get("/jobs/:jobId/download", async (req, res) => {
   return res.download(outputPath, `reviewed_responses_${job.id}.xlsx`);
 });
 
-app.use(router);
 app.use(API_PREFIX, router);
 
 app.use((error, _req, res, _next) => {
