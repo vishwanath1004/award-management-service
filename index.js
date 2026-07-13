@@ -52,6 +52,9 @@ const CORS_ORIGIN = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const MAX_UPLOAD_SIZE = parseByteSize(process.env.MAX_UPLOAD_SIZE, 10 * 1024 * 1024);
+const ADMIN_USERNAME = "admin";
+const ADMIN_PASSWORD = "admin@123!";
+const ADMIN_SESSION_TOKEN = "sg-awards-admin-session";
 
 await ensureJobStorage();
 
@@ -104,10 +107,65 @@ async function writeWorkbookFromRows(rows, filePath) {
 const API_PREFIX = process.env.API_PREFIX || "/sg-api";
 const router = express.Router();
 
+function extractBearerToken(authorizationHeader) {
+  const raw = String(authorizationHeader || "").trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  return raw.replace(/^Bearer\s+/i, "").trim();
+}
+
+function requireAdminAuth(req, res, next) {
+  if (req.method === "OPTIONS") {
+    next();
+    return;
+  }
+
+  if (req.path === "/health" || req.path === "/auth/login") {
+    next();
+    return;
+  }
+
+  const token = extractBearerToken(req.get("authorization"));
+
+  if (token !== ADMIN_SESSION_TOKEN) {
+    return res.status(401).json({
+      success: false,
+      error: "Unauthorized. Please log in again.",
+    });
+  }
+
+  next();
+}
+
+router.use(requireAdminAuth);
+
 router.get("/health", (_req, res) => {
   res.json({
     success: true,
     status: "ok",
+  });
+});
+
+router.post("/auth/login", (req, res) => {
+  const username = String(req.body?.username ?? "").trim();
+  const password = String(req.body?.password ?? "");
+
+  if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+    return res.status(401).json({
+      success: false,
+      error: "Invalid username or password.",
+    });
+  }
+
+  return res.json({
+    success: true,
+    token: ADMIN_SESSION_TOKEN,
+    user: {
+      username: ADMIN_USERNAME,
+    },
   });
 });
 
