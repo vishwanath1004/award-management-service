@@ -44,6 +44,52 @@ const DATE_PATTERN =
   /^(?:\d{1,4}[/-]\d{1,2}[/-]\d{1,4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4})$/;
 const GENERIC_COLUMN_PATTERN = /^column\s+\d+$/i;
 const UNNAMED_COLUMN_PATTERN = /^unnamed(?::|\s+column)?$/i;
+const NOMINATION_TRANSLATED_HEADERS = [
+  "Timestamp",
+  "Email Address",
+  "Your Full Name:",
+  "Your Email Address:",
+  "Your Phone Number (WhatsApp preferred):",
+  "Your Current Organisation and Role",
+  "Your Relationship to the Nominee:",
+  "Where did you hear about the Awards?",
+  "Full Name of the Nominee:",
+  "Age of the Nominee:",
+  "Nominee Phone Number:",
+  "Nominee Email Address:",
+  "Current Address of the Nominee:",
+  "Primary Language of the Nominee:",
+  "Kind of Leader:",
+  "Current Role and Organisation/Affiliation of the Nominee:",
+  "Does the nominee's work link to any government programmes or schemes?",
+  "Government scheme/programme name (if applicable):",
+  "Is the nominee already engaged with any Shikshagraha activities?",
+  "Has the nominee already received awards and/or other recognition?",
+  "Previous awards and/or recognition details:",
+  "The Challenge Addressed",
+  "The Actions Taken",
+  "The Impact Achieved",
+  "Why This Leader Stands Out",
+  "References",
+  "Supporting Documents",
+  "Link to work/projects online (Optional)",
+  "Please confirm all of the following:",
+  "Consent for use of details in communications:",
+];
+
+function is2026NativeNominationForm(headers) {
+  if (headers.length !== NOMINATION_TRANSLATED_HEADERS.length) {
+    return false;
+  }
+
+  const sourceLanguageHeaderCount = headers.filter((header) =>
+    Object.values(SCRIPT_TESTERS).some((pattern) => pattern.test(String(header ?? "")))
+  ).length;
+
+  // This avoids applying the schema to a 30-column English export or an
+  // unrelated multilingual spreadsheet.
+  return sourceLanguageHeaderCount >= 12;
+}
 
 const HEADER_RULES = [
   { match: /^आपका पूरा नाम/i, value: "Your Full Name:" },
@@ -359,11 +405,25 @@ const HEADER_RULES = [
     value: "Full Name of the Person Being Nominated:",
   },
   {
+    match: /^full name of the nominee\b/i,
+    value: "Full Name of the Person Being Nominated:",
+  },
+  {
     match: /^age of the person being nominated\b/i,
     value: "Age of the Nominee:",
   },
+  { match: /^age of the nominee\b/i, value: "Age of the Nominee:" },
+  {
+    match: /^number of years in education work\/leadership of the nominee\b/i,
+    value: "Years in Education Work/Leadership:",
+  },
   {
     match: /^contact information of the person being nominated\b/i,
+    value:
+      "Contact Information of the Person Being Nominated (Phone and/or Email Address):",
+  },
+  {
+    match: /^contact information of the nominee\b/i,
     value:
       "Contact Information of the Person Being Nominated (Phone and/or Email Address):",
   },
@@ -381,13 +441,46 @@ const HEADER_RULES = [
       "Current Address of the Nominee (Village/Panchayat/Town/City/District/State):",
   },
   {
+    match: /^current address of the nominee\b/i,
+    value:
+      "Current Address of the Nominee (Village/Panchayat/Town/City/District/State):",
+  },
+  {
     match: /^primary language of the person being nominated\b/i,
+    value: "Nominee's Mother Tongue:",
+  },
+  {
+    match: /^primary language of the nominee\b/i,
     value: "Nominee's Mother Tongue:",
   },
   { match: /^kind of leader\b/i, value: "Leader Category:" },
   {
     match: /^current role and organisation\/affiliation of the person being nominated\b/i,
     value: "Nominee's Current Organization / Role / Position:",
+  },
+  {
+    match: /^current role and organisation\/affiliation of the nominee\b/i,
+    value: "Nominee's Current Organization / Role / Position:",
+  },
+  {
+    match: /^does the nominee'?s work link to any government programmes or schemes\b/i,
+    value: "Government Programme/Scheme Link:",
+  },
+  {
+    match: /^if yes briefly name the scheme\b/i,
+    value: "Government Programme/Scheme Name:",
+  },
+  {
+    match: /^is the nominee already engaged with any shikshagraha activities\b/i,
+    value: "Shikshagraha Engagement:",
+  },
+  {
+    match: /^has the nominee already received awards and\/or other recognition\b/i,
+    value: "Previous Awards/Recognition:",
+  },
+  {
+    match: /^if you answered yes to the question above.*awards and\/or recognitions received\b/i,
+    value: "Previous Awards/Recognition Details:",
   },
   {
     match: /^the challenge addressed\b/i,
@@ -397,9 +490,14 @@ const HEADER_RULES = [
     match: /^the solution and actions taken\b/i,
     value: "Solution and Actions Taken:",
   },
+  { match: /^the actions taken\b/i, value: "Solution and Actions Taken:" },
   { match: /^the impact achieved\b/i, value: "Achievements:" },
   {
     match: /^why this leader is special\b/i,
+    value: "Why This Leader's Achievement Is Special:",
+  },
+  {
+    match: /^why this leader stands out\b/i,
     value: "Why This Leader's Achievement Is Special:",
   },
   { match: /^references\b/i, value: "References:" },
@@ -1096,7 +1194,20 @@ async function translatePlannedTexts(plans) {
 }
 
 function buildHeaderPlans(headers) {
+  const isNativeNominationForm = is2026NativeNominationForm(headers);
+
   return headers.map((header, index) => {
+    if (isNativeNominationForm) {
+      return {
+        index,
+        original: header,
+        translated: NOMINATION_TRANSLATED_HEADERS[index],
+        canonical: true,
+        language: null,
+        requiresTranslation: false,
+      };
+    }
+
     const knownTranslation = translateKnownHeader(header);
     if (knownTranslation) {
       return {
