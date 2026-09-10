@@ -18,8 +18,12 @@ const MAX_RETRIES = Math.max(
   Number.parseInt(process.env.OPENROUTER_RETRIES || "2", 10) || 2
 );
 
+// Only exclude fields that are themselves attachments or online evidence.  Do
+// not use a broad `link` match here: the nomination form includes the question
+// "Does the nominee's work link to any government programmes or schemes?",
+// which is useful context for evaluation and must remain in the submission.
 const ATTACHMENT_FIELD_PATTERN =
-  /(?:evidence|supporting document|supporting documents|project\/work link|project\/work links|attachment|attachments|file|files|photo|photos|image|images|video|videos|link|links)/i;
+  /(?:supporting documents?|project\/work links?|link to work\/projects(?: online)?|attachments?|uploaded? files?|photos?|images?|videos?)(?:\s|:|\(|$)/i;
 const ATTACHMENT_VALUE_PATTERN =
   /^(?:https?:\/\/|www\.|drive\.google\.com|docs\.google\.com|.*\.(?:pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|mp4|m4v|mov|webm|txt))$/i;
 
@@ -43,6 +47,23 @@ Evaluation principles:
 - Prefer concrete examples, repeated actions, and measurable outcomes over vague claims.
 - If evidence is weak or one-off, score lower.
 - If evidence shows sustained, adaptable, and systemic impact, score higher.
+
+How to read this nomination form:
+- Give greatest weight to the written fields headed The Challenge Addressed,
+  The Actions Taken, The Impact Achieved, and Why This Leader Stands Out.
+- Use the nominee's years in education work/leadership, leader type, current
+  role/organisation and geographical area as context for scale, experience,
+  and sustainability.
+- Consider stated government-programme links, Shikshagraha engagement,
+  prior awards/recognition, and references only when they add specific,
+  verifiable context. They do not replace evidence of the nominee's actions
+  or impact.
+- Do not award or reduce points based on the timestamp, how the nominator
+  heard about the awards, contact details, address, primary language, consent,
+  or the nominator's identity. The nominator's relationship may be used only
+  to understand the perspective of the narrative.
+- Supporting-document uploads and online links are recorded separately. Do
+  not score their URLs, filenames, or presumed contents.
 
 Rules:
 - Only include evidence that is directly supported by the submission.

@@ -26,6 +26,7 @@ const TRUTHY_VALUES = new Set([
 
 const NOMINEE_NAME_KEYS = [
   "Full Name of the Person Being Nominated:",
+  "Full Name of the Nominee:",
   "Nominee Name",
   "Name",
   "Full Name",
@@ -34,6 +35,7 @@ const NOMINEE_NAME_KEYS = [
 
 const NOMINEE_CONTACT_KEYS = [
   "Contact Information of the Person Being Nominated (Phone and/or Email Address):",
+  "Contact Information of the Nominee: (Phone and Email Address):",
   "Nominee Contact",
   "Nominee Contact Information",
   "Contact Information of the Person Being Nominated",
@@ -44,6 +46,7 @@ const NOMINEE_CONTACT_KEYS = [
 
 const NOMINEE_EMAIL_KEYS = [
   "Nominee Email",
+  "Nominee Email Address:",
   "Email Address of the Person Being Nominated",
   "Person Being Nominated Email",
   "Email",
@@ -51,6 +54,7 @@ const NOMINEE_EMAIL_KEYS = [
 
 const NOMINEE_PHONE_KEYS = [
   "Nominee Phone",
+  "Nominee Phone Number:",
   "Phone Number of the Person Being Nominated",
   "Contact Number of the Person Being Nominated",
   "Mobile Number of the Person Being Nominated",
@@ -73,6 +77,7 @@ const NOMINATOR_EMAIL_KEYS = [
 
 const NOMINATOR_PHONE_KEYS = [
   "Your Phone Number:",
+  "Your Phone Number (WhatsApp preferred):",
   "Nominator Phone",
   "Phone Number",
   "Mobile Number",
@@ -102,6 +107,8 @@ const FILE_PATH_PATTERN = /\b(?:[A-Za-z]:\\|\/)?[\w./-]+\.(?:pdf|docx?|xlsx?|ppt
 
 function normalizeKey(value) {
   return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -121,6 +128,46 @@ function getField(row, keys) {
 
   return "";
 }
+
+// Fallback for CSV/form exports whose headers don't match any known exact
+// header text above (different wording, e.g. "Person you are nominating").
+// Each candidate header must contain at least one keyword from every group.
+function getFieldByKeywords(row, keywordGroups, excludeKeywords = []) {
+  for (const [key, value] of Object.entries(row ?? {})) {
+    const normalizedHeader = normalizeKey(key);
+
+    if (excludeKeywords.some((word) => normalizedHeader.includes(word))) {
+      continue;
+    }
+
+    const matchesAllGroups = keywordGroups.every((group) =>
+      group.some((keyword) => normalizedHeader.includes(keyword))
+    );
+
+    if (!matchesAllGroups) {
+      continue;
+    }
+
+    const text = String(value ?? "").trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function getFieldWithFallback(row, exactKeys, keywordGroups, excludeKeywords = []) {
+  const exactMatch = getField(row, exactKeys);
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  return getFieldByKeywords(row, keywordGroups, excludeKeywords);
+}
+
+const NOMINEE_INDICATOR_WORDS = ["nominee", "nominated", "nominating"];
+const NOMINATOR_INDICATOR_WORDS = ["your", "nominator"];
 
 function normalizeText(value) {
   return String(value ?? "")
@@ -243,15 +290,35 @@ function extractEvidenceLinks(row) {
 }
 
 function getNomineeDetails(row) {
-  const nomineeName = getField(row, NOMINEE_NAME_KEYS);
-  const nomineeContact = getField(row, NOMINEE_CONTACT_KEYS);
+  const nomineeName = getFieldWithFallback(
+    row,
+    NOMINEE_NAME_KEYS,
+    [NOMINEE_INDICATOR_WORDS, ["name"]],
+    NOMINATOR_INDICATOR_WORDS
+  );
+  const nomineeContact = getFieldWithFallback(
+    row,
+    NOMINEE_CONTACT_KEYS,
+    [NOMINEE_INDICATOR_WORDS, ["contact", "phone", "mobile", "email"]],
+    NOMINATOR_INDICATOR_WORDS
+  );
   const nomineeEmail = firstNonEmpty(
     extractEmail(nomineeContact),
-    getField(row, NOMINEE_EMAIL_KEYS)
+    getFieldWithFallback(
+      row,
+      NOMINEE_EMAIL_KEYS,
+      [NOMINEE_INDICATOR_WORDS, ["email"]],
+      NOMINATOR_INDICATOR_WORDS
+    )
   );
   const nomineePhone = firstNonEmpty(
     extractPhone(nomineeContact),
-    getField(row, NOMINEE_PHONE_KEYS)
+    getFieldWithFallback(
+      row,
+      NOMINEE_PHONE_KEYS,
+      [NOMINEE_INDICATOR_WORDS, ["phone", "mobile"]],
+      NOMINATOR_INDICATOR_WORDS
+    )
   );
 
   return {
@@ -263,9 +330,24 @@ function getNomineeDetails(row) {
 }
 
 function getNominatorDetails(row) {
-  const nominatorName = getField(row, NOMINATOR_NAME_KEYS);
-  const nominatorEmail = getField(row, NOMINATOR_EMAIL_KEYS);
-  const nominatorPhone = getField(row, NOMINATOR_PHONE_KEYS);
+  const nominatorName = getFieldWithFallback(
+    row,
+    NOMINATOR_NAME_KEYS,
+    [NOMINATOR_INDICATOR_WORDS, ["name"]],
+    NOMINEE_INDICATOR_WORDS
+  );
+  const nominatorEmail = getFieldWithFallback(
+    row,
+    NOMINATOR_EMAIL_KEYS,
+    [NOMINATOR_INDICATOR_WORDS, ["email"]],
+    NOMINEE_INDICATOR_WORDS
+  );
+  const nominatorPhone = getFieldWithFallback(
+    row,
+    NOMINATOR_PHONE_KEYS,
+    [NOMINATOR_INDICATOR_WORDS, ["phone", "mobile"]],
+    NOMINEE_INDICATOR_WORDS
+  );
 
   return {
     name: nominatorName,
@@ -279,19 +361,19 @@ export function isSelfNomination(row) {
   const nominee = getNomineeDetails(row);
   const nominator = getNominatorDetails(row);
 
-  const explicitSelfNomination = SELF_NOMINATION_KEYS.some((key) =>
-    isTruthyFlag(getField(row, [key]))
-  );
+  const explicitSelfNomination =
+    SELF_NOMINATION_KEYS.some((key) => isTruthyFlag(getField(row, [key]))) ||
+    isTruthyFlag(getFieldByKeywords(row, [["self"], ["nomin"]]));
 
   const nameMatches = nominee.normalizedName && nominee.normalizedName === nominator.normalizedName;
   const emailMatches = nominee.email && nominator.email && nominee.email === nominator.email;
   const phoneMatches = nominee.phone && nominator.phone && nominee.phone === nominator.phone;
-  const precomputedNameMatch = NAME_MATCH_KEYS.some((key) =>
-    isTruthyFlag(getField(row, [key]))
-  );
-  const precomputedEmailMatch = EMAIL_MATCH_KEYS.some((key) =>
-    isTruthyFlag(getField(row, [key]))
-  );
+  const precomputedNameMatch =
+    NAME_MATCH_KEYS.some((key) => isTruthyFlag(getField(row, [key]))) ||
+    isTruthyFlag(getFieldByKeywords(row, [["name"], ["same", "match"]]));
+  const precomputedEmailMatch =
+    EMAIL_MATCH_KEYS.some((key) => isTruthyFlag(getField(row, [key]))) ||
+    isTruthyFlag(getFieldByKeywords(row, [["email"], ["same", "match"]]));
 
   const inferredSelfNomination =
     (nameMatches && (emailMatches || phoneMatches)) || (emailMatches && phoneMatches);
@@ -377,7 +459,7 @@ export function buildEvaluatedRow(row, aiReview) {
 
   return {
     ...row,
-    nominee_name: getField(row, NOMINEE_NAME_KEYS) || "Unknown",
+    nominee_name: getNomineeDetails(row).name || "Unknown",
     evaluation_status: "Evaluated",
     self_nomination_detected: "No",
     self_nomination_reason: "",
