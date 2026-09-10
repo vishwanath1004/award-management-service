@@ -18,10 +18,6 @@ const MAX_RETRIES = Math.max(
   Number.parseInt(process.env.OPENROUTER_RETRIES || "2", 10) || 2
 );
 
-// Only exclude fields that are themselves attachments or online evidence.  Do
-// not use a broad `link` match here: the nomination form includes the question
-// "Does the nominee's work link to any government programmes or schemes?",
-// which is useful context for evaluation and must remain in the submission.
 const ATTACHMENT_FIELD_PATTERN =
   /(?:supporting documents?|project\/work links?|link to work\/projects(?: online)?|attachments?|uploaded? files?|photos?|images?|videos?)(?:\s|:|\(|$)/i;
 const ATTACHMENT_VALUE_PATTERN =
@@ -352,11 +348,10 @@ function applyStrictValidation(review, content) {
   }
 
   const overallScore =
-    (review.continuous_improvement.score +
-      review.collaboration.score +
-      review.innovation.score +
-      review.inclusivity.score) /
-    4;
+    review.continuous_improvement.score +
+    review.collaboration.score +
+    review.innovation.score +
+    review.inclusivity.score;
 
   review.overall_score = Number(overallScore.toFixed(2));
   review.evidence_count = review.evidences.length;
@@ -395,11 +390,10 @@ function normalizeReview(review) {
   };
 
   const overallScore =
-    (normalized.continuous_improvement.score +
-      normalized.collaboration.score +
-      normalized.innovation.score +
-      normalized.inclusivity.score) /
-    4;
+    normalized.continuous_improvement.score +
+    normalized.collaboration.score +
+    normalized.innovation.score +
+    normalized.inclusivity.score;
 
   normalized.overall_score = Number(overallScore.toFixed(2));
   normalized.evidence_count = normalized.evidences.length;
