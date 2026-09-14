@@ -179,8 +179,19 @@ function normalizeText(value) {
     .trim();
 }
 
+const EMAIL_PATTERN = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+const PHONE_RUN_PATTERN = /[\d][\d\s().+-]{5,}\d/g;
+
+function stripEmail(value) {
+  return String(value ?? "").replace(EMAIL_PATTERN, " ");
+}
+
+function stripEmbeddedContact(value) {
+  return stripEmail(value).replace(PHONE_RUN_PATTERN, " ").trim();
+}
+
 function normalizeName(value) {
-  const tokens = normalizeText(value)
+  const tokens = normalizeText(stripEmbeddedContact(value))
     .split(" ")
     .filter(Boolean)
     .filter((token) => !NAME_PREFIXES.has(token));
@@ -189,15 +200,13 @@ function normalizeName(value) {
 }
 
 function extractEmail(value) {
-  const match = String(value ?? "").match(
-    /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i
-  );
+  const matches = String(value ?? "").match(EMAIL_PATTERN);
 
-  return match ? match[0].toLowerCase() : "";
+  return matches ? matches[0].toLowerCase() : "";
 }
 
 function extractPhone(value) {
-  const digits = String(value ?? "").replace(/\D/g, "");
+  const digits = stripEmail(value).replace(/\D/g, "");
 
   if (digits.length < 7) {
     return "";
@@ -330,7 +339,7 @@ function getNomineeDetails(row) {
 }
 
 function getNominatorDetails(row) {
-  const nominatorName = getFieldWithFallback(
+  const nominatorNameRaw = getFieldWithFallback(
     row,
     NOMINATOR_NAME_KEYS,
     [NOMINATOR_INDICATOR_WORDS, ["name"]],
@@ -348,12 +357,13 @@ function getNominatorDetails(row) {
     [NOMINATOR_INDICATOR_WORDS, ["phone", "mobile"]],
     NOMINEE_INDICATOR_WORDS
   );
+  const nominatorName = nominatorNameRaw.replace(/\([^)]*\)\s*$/, "").trim();
 
   return {
     name: nominatorName,
     normalizedName: normalizeName(nominatorName),
-    email: extractEmail(nominatorEmail),
-    phone: extractPhone(nominatorPhone),
+    email: firstNonEmpty(extractEmail(nominatorEmail), extractEmail(nominatorNameRaw)),
+    phone: firstNonEmpty(extractPhone(nominatorPhone), extractPhone(nominatorNameRaw)),
   };
 }
 
@@ -375,8 +385,14 @@ export function isSelfNomination(row) {
     EMAIL_MATCH_KEYS.some((key) => isTruthyFlag(getField(row, [key]))) ||
     isTruthyFlag(getFieldByKeywords(row, [["email"], ["same", "match"]]));
 
+  const nominatorNameProvided = Boolean(nominator.normalizedName);
+  const contactOnlyMatch =
+    (phoneMatches || emailMatches) && (!nominatorNameProvided || nameMatches);
+
   const inferredSelfNomination =
-    (nameMatches && (emailMatches || phoneMatches)) || (emailMatches && phoneMatches);
+    contactOnlyMatch ||
+    (nameMatches && (emailMatches || phoneMatches)) ||
+    (emailMatches && phoneMatches);
 
   const hasIdentityEvidence =
     Boolean(nominee.normalizedName || nominee.email || nominee.phone) &&
@@ -415,6 +431,12 @@ export function isSelfNomination(row) {
     reasonParts.push("nominee and nominator matched by name plus contact");
   } else if (emailMatches && phoneMatches) {
     reasonParts.push("nominee and nominator matched by email and phone");
+  } else if (contactOnlyMatch) {
+    reasonParts.push(
+      `nominator submitted no distinct name, and their ${
+        phoneMatches ? "phone number" : "email"
+      } matches the nominee's`
+    );
   }
 
   return {
