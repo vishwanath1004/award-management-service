@@ -100,6 +100,13 @@ Focus: Deliberate actions to ensure fair access to quality education, remove bar
 2: Some awareness or efforts towards inclusivity, but not a central or deeply integrated part of the work.
 3: Strong, demonstrable commitment to inclusivity, actively addressing challenges of marginalised groups and ensuring equitable access and outcomes.
 4: Champions inclusivity and equity systemically and achieves transformative impact for diverse communities.
+
+Self-nomination check (independent of the criteria scores above):
+- The submission has fields describing who is being nominated (the nominee) and who is submitting/nominating (the nominator). Field labels and language may vary, and the row may already be machine-translated, so match fields by meaning, not exact header text.
+- Decide whether the nominee and the submitter are the same real person. Treat them as the same person if their name, phone number, or email match or are clearly the same after accounting for spelling, spacing, punctuation, or transliteration/translation differences (e.g. "Manjula N" vs "Manjula. N", a phone number written with or without punctuation).
+- Also treat narrative fields written in first person about the nominee's own actions ("I did...", "my work...") as evidence of self-nomination, even if a relationship field claims otherwise.
+- Do not mark self-nomination just because the nominator and nominee share an organization, address, or a phone number plausibly shared by a household/office, when their names are clearly different people.
+- Only mark detected: true when the evidence is clear.
 `;
 
 function buildUserPrompt(content) {
@@ -137,7 +144,11 @@ Return this exact JSON shape:
   },
   "evidences": [],
   "evidence_summary": "",
-  "detailed_summary": ""
+  "detailed_summary": "",
+  "self_nomination": {
+    "detected": false,
+    "reason": ""
+  }
 }
 
 Nomination:
@@ -387,6 +398,10 @@ function normalizeReview(review) {
     evidence_summary: normalizeText(review?.evidence_summary),
     detailed_summary: normalizeText(review?.detailed_summary),
     strict_validation_notes: "",
+    self_nomination: {
+      detected: review?.self_nomination?.detected === true,
+      reason: normalizeText(review?.self_nomination?.reason),
+    },
   };
 
   const overallScore =

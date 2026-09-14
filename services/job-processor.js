@@ -91,6 +91,27 @@ async function processRow(row, rowNumber) {
 
   const aiReview = await evaluateNomination(row, { rowNumber });
 
+  if (aiReview.self_nomination?.detected) {
+    const aiSelfNominationInfo = {
+      detected: true,
+      reason: aiReview.self_nomination.reason
+        ? `AI-detected: ${aiReview.self_nomination.reason}`
+        : "AI evaluation determined the nominee and submitter are the same person.",
+      nominee: selfNominationInfo.nominee,
+      nominator: selfNominationInfo.nominator,
+    };
+
+    logSkippedRow(row, aiSelfNominationInfo, rowNumber);
+
+    return {
+      row: {
+        ...buildSkippedRow(row, aiSelfNominationInfo),
+        __evaluation_debug: aiReview.__evaluation_debug,
+      },
+      status: "skipped",
+    };
+  }
+
   return {
     row: {
       ...buildEvaluatedRow(row, aiReview),
